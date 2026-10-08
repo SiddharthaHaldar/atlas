@@ -1,0 +1,16 @@
+# Environment
+.env
+
+# Binary store contents (keep directory structure, not contents)
+binaries/n6/*
+binaries/n7/*
+!binaries/n6/.gitkeep
+!binaries/n7/.gitkeep
+
+# Oracle Data Pump dumps
+dpdump/*
+!dpdump/.gitkeep
+
+# Oracle JDBC driver
+ojdbc/*.jar
+

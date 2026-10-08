@@ -1,0 +1,107 @@
+services:
+
+  # ── Oracle XE 11g ─────────────────────────────────────────────────────────
+  oracle:
+    image: oracleinanutshell/oracle-xe-11g:latest
+    platform: linux/amd64
+    container_name: oracle-xe-11g
+    environment:
+      ORACLE_ALLOW_REMOTE: "true"
+      ORACLE_PASSWORD: ${ORACLE_SYSTEM_PASSWORD}
+    ports:
+      - "${ORACLE_CONTAINER_PORT}:1521"
+      - "8089:8080"   # Oracle Enterprise Manager (optional)
+    volumes:
+      - oracle_data:/u01/app/oracle
+      - ./dpdump:/u01/app/oracle/admin/XE/dpdump
+      - ./scripts/oracle-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "sh", "-c", "export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe && export PATH=$$ORACLE_HOME/bin:$$PATH && echo 'SELECT 1 FROM DUAL;' | sqlplus -S system/${ORACLE_SYSTEM_PASSWORD}@localhost/XE"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - nuxeo-net
+
+  # ── Mailhog (dummy SMTP — catches all outgoing emails) ───────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    platform: linux/amd64
+    container_name: mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI → http://localhost:8025
+    networks:
+      - nuxeo-net
+
+  # ── Nuxeo 6.0 (default — starts with: docker compose up) ──────────────────
+  nuxeo6:
+    image: nuxeo:6.0
+    platform: linux/amd64
+    container_name: nuxeo-6
+    depends_on:
+      oracle:
+        condition: service_healthy
+    environment:
+      NUXEO_DB_TYPE: oracle
+      NUXEO_DB_HOST: oracle
+      NUXEO_DB_NAME: XE
+      NUXEO_DB_USER: NUXEO_OWNER
+      NUXEO_DB_PASSWORD: nxo_own17
+      NUXEO_BINARY_STORE: /var/lib/nuxeo/data/binaries
+      JAVA_OPTS: "-Xms512m -Xmx1536m"
+    ports:
+      - "${NUXEO6_PORT}:8080"
+    volumes:
+      # Appended to nuxeo.conf on first boot (mail, ES off, scheduler off)
+      - ./nuxeo6.conf:/nuxeo.conf
+      - ./ojdbc/ojdbc6.jar:/opt/nuxeo/server/lib/ojdbc6.jar
+      - nuxeo6_data:/var/lib/nuxeo/data
+      - ./binaries/n6:/var/lib/nuxeo/data/binaries
+      - nuxeo6_logs:/var/log/nuxeo
+    networks:
+      - nuxeo-net
+
+  # ── Nuxeo 7.10 (start manually after schema clone + migration) ────────────
+  #
+  #   docker compose --profile n7 up -d nuxeo7
+  #
+  nuxeo7:
+    image: nuxeo:7.10
+    platform: linux/amd64
+    container_name: nuxeo-710
+    profiles:
+      - n7
+    depends_on:
+      oracle:
+        condition: service_healthy
+    environment:
+      NUXEO_DB_TYPE: oracle
+      NUXEO_DB_HOST: oracle
+      NUXEO_DB_NAME: XE
+      NUXEO_DB_USER: NUXEO_OWNER7
+      NUXEO_DB_PASSWORD: nxo_own17
+      NUXEO_BINARY_STORE: /var/lib/nuxeo/data/binaries
+      JAVA_OPTS: "-Xms512m -Xmx1536m"
+    ports:
+      - "${NUXEO7_PORT}:8080"
+    volumes:
+      - ./nuxeo7.conf:/nuxeo.conf
+      - ./ojdbc/ojdbc6.jar:/opt/nuxeo/server/lib/ojdbc6.jar
+      - nuxeo7_data:/var/lib/nuxeo/data
+      - ./binaries/n7:/var/lib/nuxeo/data/binaries
+      - nuxeo7_logs:/var/log/nuxeo
+    networks:
+      - nuxeo-net
+
+volumes:
+  oracle_data:
+  nuxeo6_data:
+  nuxeo6_logs:
+  nuxeo7_data:
+  nuxeo7_logs:
+
+networks:
+  nuxeo-net:
+    driver: bridge
