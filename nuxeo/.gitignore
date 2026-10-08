@@ -1,5 +1,7 @@
 # Environment
 .env
+.env.local
+.env.gcp
 
 # Binary store contents (keep directory structure, not contents)
 binaries/n6/*

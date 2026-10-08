@@ -8,6 +8,11 @@ services:
     environment:
       ORACLE_ALLOW_REMOTE: "true"
       ORACLE_PASSWORD: ${ORACLE_SYSTEM_PASSWORD}
+      ORACLE_SYSTEM_PASSWORD: ${ORACLE_SYSTEM_PASSWORD}
+      NUXEO_USER: ${ORACLE_USER}
+      NUXEO_PASSWORD: ${ORACLE_PASSWORD}
+      NUXEO_USER7: ${ORACLE_USER7}
+      NUXEO_PASSWORD7: ${ORACLE_PASSWORD7}
     ports:
       - "${ORACLE_CONTAINER_PORT}:1521"
       - "8089:8080"   # Oracle Enterprise Manager (optional)
@@ -16,11 +21,13 @@ services:
       - ./dpdump:/u01/app/oracle/admin/XE/dpdump
       - ./scripts/oracle-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD", "sh", "-c", "export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe && export PATH=$$ORACLE_HOME/bin:$$PATH && echo 'SELECT 1 FROM DUAL;' | sqlplus -S system/${ORACLE_SYSTEM_PASSWORD}@localhost/XE"]
-      interval: 30s
+      # Two-phase check: (1) Oracle listener is up, (2) init script created NUXEO_OWNER.
+      # nuxeo6/nuxeo7 depend on service_healthy, so they won't start until both pass.
+      test: ["CMD", "sh", "-c", "export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe && export PATH=$$ORACLE_HOME/bin:$$PATH && echo \"SELECT username FROM dba_users WHERE username='NUXEO_OWNER';\" | sqlplus -S system/${ORACLE_SYSTEM_PASSWORD}@localhost/XE | grep -q NUXEO_OWNER"]
+      interval: 20s
       timeout: 10s
-      retries: 10
-      start_period: 120s
+      retries: 15
+      start_period: 60s
     networks:
       - nuxeo-net
 
@@ -46,10 +53,11 @@ services:
     environment:
       NUXEO_DB_TYPE: oracle
       NUXEO_DB_HOST: oracle
-      NUXEO_DB_NAME: XE
-      NUXEO_DB_USER: NUXEO_OWNER
-      NUXEO_DB_PASSWORD: nxo_own17
+      NUXEO_DB_NAME: ${ORACLE_SID}
+      NUXEO_DB_USER: ${ORACLE_USER}
+      NUXEO_DB_PASSWORD: ${ORACLE_PASSWORD}
       NUXEO_BINARY_STORE: /var/lib/nuxeo/data/binaries
+      NUXEO_URL: ${NUXEO6_URL}
       JAVA_OPTS: "-Xms512m -Xmx1536m"
     ports:
       - "${NUXEO6_PORT}:8080"
@@ -79,10 +87,11 @@ services:
     environment:
       NUXEO_DB_TYPE: oracle
       NUXEO_DB_HOST: oracle
-      NUXEO_DB_NAME: XE
-      NUXEO_DB_USER: NUXEO_OWNER7
-      NUXEO_DB_PASSWORD: nxo_own17
+      NUXEO_DB_NAME: ${ORACLE_SID}
+      NUXEO_DB_USER: ${ORACLE_USER7}
+      NUXEO_DB_PASSWORD: ${ORACLE_PASSWORD7}
       NUXEO_BINARY_STORE: /var/lib/nuxeo/data/binaries
+      NUXEO_URL: ${NUXEO7_URL}
       JAVA_OPTS: "-Xms512m -Xmx1536m"
     ports:
       - "${NUXEO7_PORT}:8080"
