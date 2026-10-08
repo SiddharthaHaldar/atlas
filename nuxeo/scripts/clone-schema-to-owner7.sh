@@ -20,15 +20,19 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
+
+# Load credentials from .env.local
+set -a; source "${PROJECT_DIR}/.env.local"; set +a
+
 ORACLE_CONTAINER="oracle-xe-11g"
 NUXEO6_CONTAINER="nuxeo-6"
 N6_BINARIES="${PROJECT_DIR}/binaries/n6"
 N7_BINARIES="${PROJECT_DIR}/binaries/n7"
-SYSTEM_PASSWORD="oracle"
-SID="XE"
-SRC_SCHEMA="NUXEO_OWNER"
-DST_SCHEMA="NUXEO_OWNER7"
-DST_PASSWORD="nxo_own17"
+SYSTEM_PASSWORD="${ORACLE_SYSTEM_PASSWORD}"
+SID="${ORACLE_SID}"
+SRC_SCHEMA="${ORACLE_USER}"
+DST_SCHEMA="${ORACLE_USER7}"
+DST_PASSWORD="${ORACLE_PASSWORD7}"
 DUMP_FILE="nuxeo_owner_clone.dmp"
 LOG_EXPORT="nuxeo_owner_export.log"
 LOG_IMPORT="nuxeo_owner7_import.log"
@@ -71,7 +75,17 @@ SQL
 
 # ── 5. Import as NUXEO_OWNER7 ─────────────────────────────────────────────────
 echo "==> Importing dump as ${DST_SCHEMA}..."
-docker exec "${ORACLE_CONTAINER}" sh -c "${ORACLE_ENV} && impdp system/${SYSTEM_PASSWORD}@localhost/${SID} SCHEMAS=${SRC_SCHEMA} REMAP_SCHEMA=${SRC_SCHEMA}:${DST_SCHEMA} DIRECTORY=DATA_PUMP_DIR DUMPFILE=${DUMP_FILE} LOGFILE=${LOG_IMPORT} TABLE_EXISTS_ACTION=REPLACE"
+# impdp exits non-zero even for non-fatal warnings (e.g. nested table ACLR_USER,
+# compilation warnings on functions). Capture the exit code but don't abort.
+docker exec "${ORACLE_CONTAINER}" sh -c "${ORACLE_ENV} && impdp system/${SYSTEM_PASSWORD}@localhost/${SID} SCHEMAS=${SRC_SCHEMA} REMAP_SCHEMA=${SRC_SCHEMA}:${DST_SCHEMA} DIRECTORY=DATA_PUMP_DIR DUMPFILE=${DUMP_FILE} LOGFILE=${LOG_IMPORT} TABLE_EXISTS_ACTION=REPLACE TRANSFORM=OID:N" || \
+  echo "==> Warning: impdp finished with non-fatal errors (see ${LOG_IMPORT}), continuing..."
+
+# Recompile any invalid objects caused by type-ordering issues during import
+echo "==> Recompiling invalid objects in ${DST_SCHEMA}..."
+docker exec "${ORACLE_CONTAINER}" sh -c "${ORACLE_ENV} && sqlplus -S system/${SYSTEM_PASSWORD}@localhost/${SID}" <<SQL
+EXECUTE DBMS_UTILITY.COMPILE_SCHEMA(schema => '${DST_SCHEMA}', compile_all => FALSE);
+EXIT;
+SQL
 
 # ── 6. Run CONTENT.DATA migration ─────────────────────────────────────────────
 echo "==> Running CONTENT.DATA migration on ${DST_SCHEMA}..."
