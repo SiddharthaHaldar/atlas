@@ -59,15 +59,26 @@ services:
       NUXEO_BINARY_STORE: /var/lib/nuxeo/data/binaries
       NUXEO_URL: ${NUXEO6_URL}
       JAVA_OPTS: "-Xms512m -Xmx1536m"
-    ports:
-      - "${NUXEO6_PORT}:8080"
     volumes:
       # Appended to nuxeo.conf on first boot (mail, ES off, scheduler off)
       - ./nuxeo6.conf:/nuxeo.conf
+      - ./scripts/configure-tomcat-proxy.sh:/docker-entrypoint-initnuxeo.d/10-configure-proxy.sh:ro
       - ./ojdbc/ojdbc6.jar:/opt/nuxeo/server/lib/ojdbc6.jar
       - nuxeo6_data:/var/lib/nuxeo/data
       - ./binaries/n6:/var/lib/nuxeo/data/binaries
       - nuxeo6_logs:/var/log/nuxeo
+    networks:
+      - nuxeo-net
+
+  nuxeo6-proxy:
+    image: nginx:alpine
+    container_name: nuxeo-6-proxy
+    depends_on:
+      - nuxeo6
+    ports:
+      - "${NUXEO6_PORT}:8080"
+    volumes:
+      - ./nginx/nuxeo6.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - nuxeo-net
 
