@@ -4,12 +4,7 @@ Atlas is a suite of enterprise applications supporting document management, coll
 
 ## Codespaces: Fix Docker Networking
 
-> [!IMPORTANT]
-> If Docker networking is not working in Codespaces, run:
->
-> ```sh
-> sudo iptables-legacy -I FORWARD -i br+ -o br+ -j ACCEPT
-> ```
+The Docker forwarding rule is applied automatically when the Codespace starts. Rebuild an existing Codespace once to pick up this configuration.
 
 ## Applications
 
