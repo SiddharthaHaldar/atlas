@@ -27,6 +27,30 @@ docker compose up -d        # starts Oracle + Mailhog + Nuxeo 6
 Nuxeo 6 → http://localhost:8080/nuxeo
 Mailhog UI → http://localhost:8025
 
+## Nuxeo 6 Public URL
+
+Set `NUXEO6_URL` in `.env` to the external application URL, including `/nuxeo`.
+For Codespaces, use `https://<forwarded-host>/nuxeo`.
+
+The N6 startup hook configures Tomcat for the external HTTPS endpoint and
+compiles a small servlet filter using the JDK bundled with `nuxeo:6.0`.
+Nuxeo registers the filter before authentication through a deployment fragment.
+It supplies `nuxeo-virtual-host` from the origin of `NUXEO_URL`, overriding any
+client-supplied value while leaving other headers unchanged. This avoids Nuxeo
+6's forwarded-host handling, which defaults to port 80 even for HTTPS.
+No Nginx service is needed. N7 is unchanged.
+
+The same bundle includes a filter mapped only to `Nuxeo JS Provider`. Nuxeo 6's
+aggregated `/nuxeo/js/?scripts=...` servlet omits `Content-Type`; the filter sets
+`application/javascript` for script-bundle GET/HEAD requests so modern browsers
+can execute them with strict MIME checking enabled.
+
+After changing the public URL or filter sources, recreate N6:
+
+```bash
+docker compose up -d --no-deps --force-recreate nuxeo6
+```
+
 ## Migration Steps
 
 ```bash

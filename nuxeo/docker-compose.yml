@@ -31,16 +31,16 @@ services:
     networks:
       - nuxeo-net
 
-  # ── Mailhog (dummy SMTP — catches all outgoing emails) ───────────────────
-  mailhog:
-    image: mailhog/mailhog:latest
-    platform: linux/amd64
-    container_name: mailhog
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI → http://localhost:8025
-    networks:
-      - nuxeo-net
+  # # ── Mailhog (dummy SMTP — catches all outgoing emails) ───────────────────
+  # mailhog:
+  #   image: mailhog/mailhog:latest
+  #   platform: linux/amd64
+  #   container_name: mailhog
+  #   ports:
+  #     - "1025:1025"   # SMTP
+  #     - "8025:8025"   # Web UI → http://localhost:8025
+  #   networks:
+  #     - nuxeo-net
 
   # ── Nuxeo 6.0 (default — starts with: docker compose up) ──────────────────
   nuxeo6:
@@ -65,6 +65,7 @@ services:
       # Appended to nuxeo.conf on first boot (mail, ES off, scheduler off)
       - ./nuxeo6.conf:/nuxeo.conf
       - ./scripts/configure-tomcat-proxy.sh:/docker-entrypoint-initnuxeo.d/10-configure-proxy.sh:ro
+      - ./scripts/public-origin-filter:/opt/nuxeo/public-origin-filter:ro
       - ./ojdbc/ojdbc6.jar:/opt/nuxeo/server/lib/ojdbc6.jar
       - nuxeo6_data:/var/lib/nuxeo/data
       - ./binaries/n6:/var/lib/nuxeo/data/binaries

@@ -15,3 +15,15 @@ do
   fi
   sed -i '/<Valve className="org.apache.catalina.valves.RemoteIpValve"/d' "$config_file"
 done
+
+if [ -n "${NUXEO_URL:-}" ]; then
+  filter_source=/opt/nuxeo/public-origin-filter
+  filter_build=$(mktemp -d)
+  javac -source 7 -target 7 \
+    -classpath "$NUXEO_HOME/lib/servlet-api.jar" \
+    -d "$filter_build" "$filter_source"/*.java
+  jar cfm "$NUXEO_HOME/nxserver/bundles/atlas-public-origin-filter.jar" \
+    "$filter_source/META-INF/MANIFEST.MF" \
+    -C "$filter_build" . -C "$filter_source" OSGI-INF
+  rm -rf "$filter_build"
+fi
