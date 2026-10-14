@@ -46,10 +46,12 @@ services:
   nuxeo6:
     image: nuxeo:6.0
     platform: linux/amd64
-    container_name: nuxeo-6
+    container_name: n6
     depends_on:
       oracle:
         condition: service_healthy
+    ports:
+      - "${NUXEO6_PORT}:8080"
     environment:
       NUXEO_DB_TYPE: oracle
       NUXEO_DB_HOST: oracle
@@ -73,6 +75,8 @@ services:
   nuxeo6-proxy:
     image: nginx:alpine
     container_name: nuxeo-6-proxy
+    profiles:
+      - proxy
     depends_on:
       - nuxeo6
     ports:
@@ -89,7 +93,7 @@ services:
   nuxeo7:
     image: nuxeo:7.10
     platform: linux/amd64
-    container_name: nuxeo-710
+    container_name: n7
     profiles:
       - n7
     depends_on:
@@ -112,6 +116,23 @@ services:
       - nuxeo7_data:/var/lib/nuxeo/data
       - ./binaries/n7:/var/lib/nuxeo/data/binaries
       - nuxeo7_logs:/var/log/nuxeo
+    networks:
+      - nuxeo-net
+  
+  tomcat7:
+    image: tomcat:7.0-jdk8-openjdk
+    platform: linux/amd64
+    container_name: t7
+    profiles:
+      - t7
+    ports:
+      - "8081:8080"
+    volumes:
+      # Mounts the dummy application into Tomcat's deployment folder
+      - ./dummy-app.war:/usr/local/tomcat/webapps/dummy-app.war
+    environment:
+      - CATALINA_OPTS=-Xms512m -Xmx1024m
+    restart: unless-stopped
     networks:
       - nuxeo-net
 
