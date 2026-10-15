@@ -21,11 +21,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
 
-# Load credentials from .env.local
-set -a; source "${PROJECT_DIR}/.env.local"; set +a
+# Load credentials from .env
+set -a; source "${PROJECT_DIR}/.env"; set +a
 
 ORACLE_CONTAINER="oracle-xe-11g"
-NUXEO6_CONTAINER="nuxeo-6"
+NUXEO6_CONTAINER=$(docker ps --filter "ancestor=nuxeo:6.0" --format "{{.Names}}")
 N6_BINARIES="${PROJECT_DIR}/binaries/n6"
 N7_BINARIES="${PROJECT_DIR}/binaries/n7"
 SYSTEM_PASSWORD="${ORACLE_SYSTEM_PASSWORD}"
@@ -94,10 +94,16 @@ docker exec -i "${ORACLE_CONTAINER}" sh -c "${ORACLE_ENV} && sqlplus -S ${DST_SC
 
 # ── 7. Copy N6 binaries into N7 binary store ─────────────────────────────────
 echo "==> Copying binaries from N6 → N7..."
+if [[ ! -d "${N6_BINARIES}" ]]; then
+  echo "==> Error: N6 binary store not found at ${N6_BINARIES}" >&2
+  exit 1
+fi
+mkdir -p "${N7_BINARIES}"
+find "${N7_BINARIES}" -mindepth 1 -delete
 cp -r "${N6_BINARIES}/." "${N7_BINARIES}/"
 echo "    Copied $(find "${N7_BINARIES}" -type f | wc -l | tr -d ' ') files to ${N7_BINARIES}"
 
 echo ""
 echo "==> Done. Schema ${DST_SCHEMA} is ready for Nuxeo 7.10."
 echo "    Start N7 with:"
-echo "    docker compose --profile n7 up -d nuxeo7"
+echo "    docker compose --profile n7 up -d"

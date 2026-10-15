@@ -1,0 +1,3 @@
+{
+  "postStartCommand": "sudo iptables-legacy -C FORWARD -i br+ -o br+ -j ACCEPT || sudo iptables-legacy -I FORWARD -i br+ -o br+ -j ACCEPT"
+}

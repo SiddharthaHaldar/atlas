@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<fragment version="1">
+  <extension target="web#EXCEPTION-FILTER">
+    <filter>
+      <filter-name>AtlasPublicOriginFilter</filter-name>
+      <filter-class>atlas.nuxeo.PublicOriginFilter</filter-class>
+    </filter>
+    <filter-mapping>
+      <filter-name>AtlasPublicOriginFilter</filter-name>
+      <url-pattern>/*</url-pattern>
+      <dispatcher>REQUEST</dispatcher>
+      <dispatcher>FORWARD</dispatcher>
+    </filter-mapping>
+    <filter>
+      <filter-name>AtlasAggregatedJsContentTypeFilter</filter-name>
+      <filter-class>atlas.nuxeo.AggregatedJsContentTypeFilter</filter-class>
+    </filter>
+    <filter-mapping>
+      <filter-name>AtlasAggregatedJsContentTypeFilter</filter-name>
+      <servlet-name>Nuxeo JS Provider</servlet-name>
+      <dispatcher>REQUEST</dispatcher>
+      <dispatcher>FORWARD</dispatcher>
+    </filter-mapping>
+  </extension>
+</fragment>
