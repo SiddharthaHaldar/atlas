@@ -21,7 +21,7 @@ curl -L https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc6/11.2.0.4/
 
 ```bash
 cp .env.example .env        # fill in credentials
-docker compose --profile proxy up -d  # starts Oracle + Nuxeo 6 + Nginx
+docker compose --profile n6 up -d  # starts Oracle + Nuxeo 6 + Nginx
 ```
 
 Nuxeo 6 → http://localhost:8080/nuxeo
@@ -32,9 +32,9 @@ Mailhog UI → http://localhost:8025
 Set `NUXEO6_URL` in `.env` to the external application URL, including `/nuxeo`.
 For Codespaces, use `https://<forwarded-host>/nuxeo`.
 
-Nginx is currently the only service publishing `NUXEO6_PORT`; it forwards to
-N6 on the internal Docker network. Start it with the `proxy` profile.
-N7 is unchanged.
+Nginx is the only service publishing the Nuxeo ports. The N6 and N7 services
+are isolated behind their respective profiles; Nginx is included in both.
+Start N6 with `--profile n6` or N7 with `--profile n7`.
 
 ### Request Path and Tomcat Settings
 
@@ -190,17 +190,18 @@ and the filter build in the script, restore N6's published port, stop the proxy,
 and recreate N6. To restore only the Tomcat adjustments, uncomment only the
 startup-hook mount and recreate N6 and Nginx.
 
-After changing the public URL, recreate N6 and Nginx:
+After changing the public URL, recreate the app and Nginx under the matching
+profile. For N6:
 
 ```bash
-docker compose --profile proxy up -d --no-deps --force-recreate nuxeo6 nuxeo6-proxy
+docker compose --profile n6 up -d --force-recreate
 ```
 
 To validate the generated Nginx configuration and inspect request traces:
 
 ```bash
 docker exec nuxeo-6-proxy nginx -t
-docker compose --profile proxy logs --tail=50 nuxeo6-proxy
+docker compose --profile n6 logs --tail=50 nginx-proxy
 ```
 
 The proxy's JSON access logs include incoming forwarded headers, upstream status,
@@ -215,8 +216,16 @@ passed back through Nginx.
 # 2. Clone schema and binaries to N7
 ./scripts/clone-schema-to-owner7.sh
 
-# 3. Start Nuxeo 7.10
-docker compose --profile n7 up -d nuxeo7
+# 3. Start Nuxeo 7.10 behind Nginx on port 8081
+docker compose --profile n7 up -d
 ```
 
 Nuxeo 7.10 → http://localhost:8081/nuxeo
+
+Nginx listens on host port `NUXEO7_PORT` (8081 by default) and forwards those
+requests to the internal `nuxeo7:8080` service. Set `NUXEO7_URL` to the public
+port-8081 URL ending in Nuxeo's actual `/nuxeo` context path. Nginx uses that
+URL's origin for N7's `nuxeo-virtual-host` header and applies the same aggregated
+JavaScript MIME fallback used on the N6 listener. Nginx has both `n6` and `n7`
+profiles, so either app profile starts the shared proxy. It has no hard dependency
+on N6; the corresponding Nuxeo service is selected by the profile.

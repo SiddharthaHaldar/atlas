@@ -42,11 +42,13 @@ services:
   #   networks:
   #     - nuxeo-net
 
-  # ── Nuxeo 6.0 (default — starts with: docker compose up) ──────────────────
+  # ── Nuxeo 6.0 (start with: docker compose --profile n6 up -d) ─────────────
   nuxeo6:
     image: nuxeo:6.0
     platform: linux/amd64
     container_name: n6
+    profiles:
+      - n6
     depends_on:
       oracle:
         condition: service_healthy
@@ -73,26 +75,27 @@ services:
     networks:
       - nuxeo-net
 
-  nuxeo6-proxy:
+  nginx-proxy:
     image: nginx:alpine
-    container_name: nuxeo-6-proxy
+    container_name: nginx-proxy
     profiles:
-      - proxy
+      - n6
+      - n7
     environment:
-      NUXEO_PUBLIC_URL: ${NUXEO6_URL}
-      NGINX_ENVSUBST_FILTER: "^NUXEO_PUBLIC_URL$$"
-    depends_on:
-      - nuxeo6
+      NUXEO6_PUBLIC_URL: ${NUXEO6_URL}
+      NUXEO7_PUBLIC_URL: ${NUXEO7_URL}
+      NGINX_ENVSUBST_FILTER: "^NUXEO[67]_PUBLIC_URL$$"
     ports:
       - "${NUXEO6_PORT}:8080"
+      - "${NUXEO7_PORT}:8081"
     volumes:
-      - ./nginx/nuxeo6.conf:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/nuxeo.conf:/etc/nginx/templates/default.conf.template:ro
     networks:
       - nuxeo-net
 
   # ── Nuxeo 7.10 (start manually after schema clone + migration) ────────────
   #
-  #   docker compose --profile n7 up -d nuxeo7
+  #   docker compose --profile n7 up -d
   #
   nuxeo7:
     image: nuxeo:7.10
@@ -112,31 +115,14 @@ services:
       NUXEO_BINARY_STORE: /var/lib/nuxeo/data/binaries
       NUXEO_URL: ${NUXEO7_URL}
       JAVA_OPTS: "-Xms512m -Xmx1536m"
-    ports:
-      - "${NUXEO7_PORT}:8080"
+    # ports:
+    #   - "${NUXEO7_PORT}:8080"
     volumes:
       - ./nuxeo7.conf:/nuxeo.conf
       - ./ojdbc/ojdbc6.jar:/opt/nuxeo/server/lib/ojdbc6.jar
       - nuxeo7_data:/var/lib/nuxeo/data
       - ./binaries/n7:/var/lib/nuxeo/data/binaries
       - nuxeo7_logs:/var/log/nuxeo
-    networks:
-      - nuxeo-net
-  
-  tomcat7:
-    image: tomcat:7.0-jdk8-openjdk
-    platform: linux/amd64
-    container_name: t7
-    profiles:
-      - t7
-    ports:
-      - "8081:8080"
-    volumes:
-      # Mounts the dummy application into Tomcat's deployment folder
-      - ./dummy-app.war:/usr/local/tomcat/webapps/dummy-app.war
-    environment:
-      - CATALINA_OPTS=-Xms512m -Xmx1024m
-    restart: unless-stopped
     networks:
       - nuxeo-net
 
